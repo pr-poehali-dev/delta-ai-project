@@ -1,12 +1,183 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState, useRef, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card } from '@/components/ui/card';
+import Icon from '@/components/ui/icon';
+
+interface Message {
+  id: string;
+  content: string;
+  sender: 'user' | 'bot';
+  timestamp: Date;
+}
 
 const Index = () => {
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: '1',
+      content: 'Привет! Я Delta AI — твой персональный ассистент. Чем могу помочь?',
+      sender: 'bot',
+      timestamp: new Date(),
+    },
+  ]);
+  const [inputValue, setInputValue] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const generateBotResponse = (userMessage: string): string => {
+    const responses = [
+      'Отличный вопрос! Дай мне секунду подумать...',
+      'Я понимаю тебя. Вот что я думаю по этому поводу...',
+      'Интересно! Давай разберём это вместе.',
+      'Я здесь, чтобы помочь. Вот моя мысль...',
+      'Спасибо за вопрос! Позволь мне объяснить...',
+    ];
+
+    const topics = [
+      'программировании',
+      'дизайне',
+      'искусственном интеллекте',
+      'веб-разработке',
+      'творчестве',
+    ];
+
+    const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+    const randomTopic = topics[Math.floor(Math.random() * topics.length)];
+
+    return `${randomResponse} Я могу помочь с вопросами о ${randomTopic}. Что конкретно тебя интересует?`;
+  };
+
+  const handleSend = () => {
+    if (!inputValue.trim()) return;
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      content: inputValue,
+      sender: 'user',
+      timestamp: new Date(),
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
+    setInputValue('');
+    setIsTyping(true);
+
+    setTimeout(() => {
+      const botMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content: generateBotResponse(inputValue),
+        sender: 'bot',
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, botMessage]);
+      setIsTyping(false);
+    }, 1500);
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4 color-black text-black">Добро пожаловать!</h1>
-        <p className="text-xl text-gray-600">тут будет отображаться ваш проект</p>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-primary/10 via-secondary/10 to-accent/10 flex flex-col">
+      <header className="bg-white/80 backdrop-blur-md border-b border-border sticky top-0 z-10">
+        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary via-secondary to-accent flex items-center justify-center">
+            <Icon name="Sparkles" size={20} className="text-white" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
+              Delta AI
+            </h1>
+            <p className="text-xs text-muted-foreground">Твой умный ассистент</p>
+          </div>
+        </div>
+      </header>
+
+      <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-6 overflow-y-auto">
+        <div className="space-y-4">
+          {messages.map((message, index) => (
+            <div
+              key={message.id}
+              className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}
+              style={{ animationDelay: `${index * 0.1}s` }}
+            >
+              <div
+                className={`max-w-[80%] ${
+                  message.sender === 'user'
+                    ? 'bg-gradient-to-br from-primary to-secondary text-white'
+                    : 'bg-white border border-border'
+                } rounded-2xl px-5 py-3 shadow-sm hover:shadow-md transition-shadow`}
+              >
+                <p className="text-sm leading-relaxed">{message.content}</p>
+                <span className="text-xs opacity-60 mt-1 block">
+                  {message.timestamp.toLocaleTimeString('ru-RU', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </span>
+              </div>
+            </div>
+          ))}
+
+          {isTyping && (
+            <div className="flex justify-start animate-fade-in">
+              <Card className="bg-white border border-border rounded-2xl px-5 py-3 shadow-sm">
+                <div className="flex gap-1.5">
+                  <div className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '0s' }} />
+                  <div className="w-2 h-2 bg-secondary/60 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
+                  <div className="w-2 h-2 bg-accent/60 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
+                </div>
+              </Card>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+      </main>
+
+      <footer className="bg-white/80 backdrop-blur-md border-t border-border sticky bottom-0">
+        <div className="max-w-4xl mx-auto px-4 py-4">
+          <div className="flex gap-2 items-end">
+            <div className="flex-1 relative">
+              <Input
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Напиши сообщение Delta AI..."
+                className="pr-12 h-12 rounded-2xl border-2 focus:border-primary/50 transition-colors"
+              />
+              {inputValue && (
+                <button
+                  onClick={() => setInputValue('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Icon name="X" size={18} />
+                </button>
+              )}
+            </div>
+            <Button
+              onClick={handleSend}
+              disabled={!inputValue.trim() || isTyping}
+              className="h-12 px-6 rounded-2xl bg-gradient-to-r from-primary via-secondary to-accent hover:opacity-90 transition-opacity"
+            >
+              <Icon name="Send" size={20} />
+            </Button>
+          </div>
+          <p className="text-xs text-center text-muted-foreground mt-2">
+            Delta AI может совершать ошибки. Проверяйте важную информацию.
+          </p>
+        </div>
+      </footer>
     </div>
   );
 };
