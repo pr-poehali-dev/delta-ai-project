@@ -9,6 +9,7 @@ interface Message {
   content: string;
   sender: 'user' | 'bot';
   timestamp: Date;
+  image?: string;
 }
 
 const Index = () => {
@@ -25,7 +26,9 @@ const Index = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallButton, setShowInstallButton] = useState(false);
   const [showWelcome, setShowWelcome] = useState(true);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -62,19 +65,33 @@ const Index = () => {
     setDeferredPrompt(null);
   };
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSelectedImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSend = async () => {
-    if (!inputValue.trim()) return;
+    if (!inputValue.trim() && !selectedImage) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
-      content: inputValue,
+      content: inputValue || 'Изображение',
       sender: 'user',
       timestamp: new Date(),
+      image: selectedImage || undefined,
     };
 
     const messageText = inputValue;
+    const imageData = selectedImage;
     setMessages((prev) => [...prev, userMessage]);
     setInputValue('');
+    setSelectedImage(null);
     setIsTyping(true);
 
     try {
@@ -83,7 +100,10 @@ const Index = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ message: messageText }),
+        body: JSON.stringify({ 
+          message: messageText,
+          image: imageData 
+        }),
       });
 
       if (!response.ok) {
@@ -192,6 +212,13 @@ const Index = () => {
                     : 'bg-white border border-border'
                 } rounded-2xl px-5 py-3 shadow-sm hover:shadow-md transition-shadow`}
               >
+                {message.image && (
+                  <img 
+                    src={message.image} 
+                    alt="Прикрепленное изображение" 
+                    className="rounded-xl mb-2 max-w-full h-auto"
+                  />
+                )}
                 <p className="text-sm leading-relaxed">{message.content}</p>
                 <span className="text-xs opacity-60 mt-1 block">
                   {message.timestamp.toLocaleTimeString('ru-RU', {
@@ -220,7 +247,36 @@ const Index = () => {
 
       <footer className="bg-white/80 backdrop-blur-md border-t border-border sticky bottom-0">
         <div className="max-w-4xl mx-auto px-4 py-4">
+          {selectedImage && (
+            <div className="mb-3 relative inline-block">
+              <img 
+                src={selectedImage} 
+                alt="Выбранное изображение" 
+                className="rounded-xl max-h-32 border-2 border-primary/30"
+              />
+              <button
+                onClick={() => setSelectedImage(null)}
+                className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
+              >
+                ×
+              </button>
+            </div>
+          )}
           <div className="flex gap-2 items-end">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageSelect}
+              className="hidden"
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/10 to-secondary/10 flex items-center justify-center hover:from-primary/20 hover:to-secondary/20 transition-all border border-primary/20"
+              aria-label="Прикрепить изображение"
+            >
+              <Icon name="Plus" size={20} className="text-primary" />
+            </button>
             <div className="flex-1 relative">
               <Input
                 value={inputValue}

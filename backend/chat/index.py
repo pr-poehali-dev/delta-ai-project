@@ -35,8 +35,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     body_data = json.loads(event.get('body', '{}'))
     user_message: str = body_data.get('message', '')
+    user_image: str = body_data.get('image', '')
     
-    if not user_message:
+    if not user_message and not user_image:
         return {
             'statusCode': 400,
             'headers': {
@@ -44,7 +45,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'Access-Control-Allow-Origin': '*'
             },
             'isBase64Encoded': False,
-            'body': json.dumps({'error': 'Message is required'})
+            'body': json.dumps({'error': 'Message or image is required'})
         }
     
     api_key = os.environ.get('MISTRAL_API_KEY')
@@ -63,18 +64,36 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     mistral_url = 'https://api.mistral.ai/v1/chat/completions'
     
+    messages = [
+        {
+            'role': 'system',
+            'content': 'Ты Delta AI - дружелюбный и умный русскоязычный ассистент с возможностью анализа изображений. Отвечай кратко, понятно и по делу. Используй эмодзи где уместно. Если пользователь отправил изображение, опиши что на нём видишь.'
+        }
+    ]
+    
+    if user_image:
+        messages.append({
+            'role': 'user',
+            'content': [
+                {
+                    'type': 'text',
+                    'text': user_message if user_message else 'Что на этом изображении?'
+                },
+                {
+                    'type': 'image_url',
+                    'image_url': user_image
+                }
+            ]
+        })
+    else:
+        messages.append({
+            'role': 'user',
+            'content': user_message
+        })
+    
     payload = {
-        'model': 'mistral-small-latest',
-        'messages': [
-            {
-                'role': 'system',
-                'content': 'Ты Delta AI - дружелюбный и умный русскоязычный ассистент. Отвечай кратко, понятно и по делу. Используй эмодзи где уместно.'
-            },
-            {
-                'role': 'user',
-                'content': user_message
-            }
-        ],
+        'model': 'pixtral-12b-2409',
+        'messages': messages,
         'temperature': 0.7,
         'max_tokens': 500
     }

@@ -23,7 +23,7 @@
       },
       "expectedStatus": 400,
       "expectedBody": {
-        "error": "Message is required"
+        "error": "Message or image is required"
       }
     }
   ]
