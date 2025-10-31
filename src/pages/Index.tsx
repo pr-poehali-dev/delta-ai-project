@@ -28,6 +28,7 @@ const Index = () => {
   const [showWelcome, setShowWelcome] = useState(true);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [showCamera, setShowCamera] = useState(false);
+  const [showActionMenu, setShowActionMenu] = useState(false);
   const [cameraMode, setCameraMode] = useState<'photo' | 'translate' | 'solve'>('photo');
   const [stream, setStream] = useState<MediaStream | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -70,7 +71,10 @@ const Index = () => {
     setDeferredPrompt(null);
   };
 
-  const startCamera = async () => {
+  const startCamera = async (mode: 'photo' | 'translate' | 'solve') => {
+    setCameraMode(mode);
+    setShowActionMenu(false);
+    
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         alert('Ваш браузер не поддерживает доступ к камере. Попробуйте использовать Chrome, Safari или Firefox.');
@@ -124,7 +128,12 @@ const Index = () => {
       videoRef.current.srcObject = null;
     }
     setShowCamera(false);
-    setCameraMode('photo');
+  };
+
+  const openFileSelect = (mode: 'photo' | 'translate' | 'solve') => {
+    setCameraMode(mode);
+    setShowActionMenu(false);
+    fileInputRef.current?.click();
   };
 
   useEffect(() => {
@@ -134,6 +143,18 @@ const Index = () => {
       }
     };
   }, [stream]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (showActionMenu && !target.closest('.action-menu-container')) {
+        setShowActionMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showActionMenu]);
 
   const capturePhoto = () => {
     if (videoRef.current && canvasRef.current) {
@@ -167,7 +188,19 @@ const Index = () => {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setSelectedImage(reader.result as string);
+        const imageData = reader.result as string;
+        setSelectedImage(imageData);
+        
+        let prompt = '';
+        if (cameraMode === 'translate') {
+          prompt = 'Переведи весь текст с этого изображения на русский язык. Сохрани форматирование.';
+        } else if (cameraMode === 'solve') {
+          prompt = 'Реши все задачи и примеры с этого изображения. Покажи подробное решение.';
+        }
+        
+        if (prompt) {
+          setInputValue(prompt);
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -282,24 +315,15 @@ const Index = () => {
               <p className="text-xs text-muted-foreground">Твой умный ассистент</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          {showInstallButton && (
             <button
-              onClick={startCamera}
+              onClick={handleInstallClick}
               className="w-10 h-10 rounded-full bg-gradient-to-br from-primary via-secondary to-accent flex items-center justify-center hover:opacity-90 transition-opacity shadow-md"
-              aria-label="Открыть камеру"
+              aria-label="Установить приложение"
             >
-              <Icon name="Camera" size={20} className="text-white" />
+              <Icon name="Smartphone" size={20} className="text-white" />
             </button>
-            {showInstallButton && (
-              <button
-                onClick={handleInstallClick}
-                className="w-10 h-10 rounded-full bg-gradient-to-br from-primary via-secondary to-accent flex items-center justify-center hover:opacity-90 transition-opacity shadow-md"
-                aria-label="Установить приложение"
-              >
-                <Icon name="Smartphone" size={20} className="text-white" />
-              </button>
-            )}
-          </div>
+          )}
         </div>
       </header>
 
@@ -312,38 +336,12 @@ const Index = () => {
             >
               <Icon name="X" size={24} className="text-white" />
             </button>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setCameraMode('photo')}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                  cameraMode === 'photo'
-                    ? 'bg-white text-black'
-                    : 'bg-white/20 text-white backdrop-blur-md'
-                }`}
-              >
-                📸 Фото
-              </button>
-              <button
-                onClick={() => setCameraMode('translate')}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                  cameraMode === 'translate'
-                    ? 'bg-white text-black'
-                    : 'bg-white/20 text-white backdrop-blur-md'
-                }`}
-              >
-                🌐 Перевод
-              </button>
-              <button
-                onClick={() => setCameraMode('solve')}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                  cameraMode === 'solve'
-                    ? 'bg-white text-black'
-                    : 'bg-white/20 text-white backdrop-blur-md'
-                }`}
-              >
-                🧮 Решить
-              </button>
+            <div className="px-4 py-2 rounded-full text-white font-medium bg-white/20 backdrop-blur-md">
+              {cameraMode === 'photo' && '📸 Фото'}
+              {cameraMode === 'translate' && '🌐 Перевод текста'}
+              {cameraMode === 'solve' && '🧮 Решение задач'}
             </div>
+            <div className="w-10" />
           </div>
           <div className="flex-1 relative">
             <video
@@ -356,10 +354,13 @@ const Index = () => {
           </div>
           <div className="p-6 bg-black/50 flex flex-col items-center gap-3">
             {cameraMode === 'translate' && (
-              <p className="text-white text-sm text-center">📱 Наведите на текст для перевода</p>
+              <p className="text-white text-sm text-center">📱 Наведите камеру на текст для перевода</p>
             )}
             {cameraMode === 'solve' && (
-              <p className="text-white text-sm text-center">🧮 Наведите на задачу для решения</p>
+              <p className="text-white text-sm text-center">🧮 Наведите камеру на задачу для решения</p>
+            )}
+            {cameraMode === 'photo' && (
+              <p className="text-white text-sm text-center">📸 Сделайте фото для анализа</p>
             )}
             <button
               onClick={capturePhoto}
@@ -444,13 +445,97 @@ const Index = () => {
               onChange={handleImageSelect}
               className="hidden"
             />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/10 to-secondary/10 flex items-center justify-center hover:from-primary/20 hover:to-secondary/20 transition-all border border-primary/20"
-              aria-label="Прикрепить изображение"
-            >
-              <Icon name="Plus" size={20} className="text-primary" />
-            </button>
+            <div className="relative action-menu-container">
+              <button
+                onClick={() => setShowActionMenu(!showActionMenu)}
+                className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/10 to-secondary/10 flex items-center justify-center hover:from-primary/20 hover:to-secondary/20 transition-all border border-primary/20"
+                aria-label="Открыть меню действий"
+              >
+                <Icon name="Plus" size={20} className="text-primary" />
+              </button>
+              
+              {showActionMenu && (
+                <div className="absolute bottom-full left-0 mb-2 w-64 bg-white rounded-2xl shadow-2xl border border-border overflow-hidden animate-fade-in">
+                  <button
+                    onClick={() => openFileSelect('photo')}
+                    className="w-full px-4 py-3 flex items-center gap-3 hover:bg-primary/5 transition-colors text-left"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                      <span className="text-xl">📷</span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm">Выбрать фото</p>
+                      <p className="text-xs text-muted-foreground">Описать содержимое</p>
+                    </div>
+                  </button>
+                  
+                  <button
+                    onClick={() => startCamera('photo')}
+                    className="w-full px-4 py-3 flex items-center gap-3 hover:bg-primary/5 transition-colors text-left border-t border-border"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                      <span className="text-xl">📸</span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm">Сфотографировать</p>
+                      <p className="text-xs text-muted-foreground">Открыть камеру</p>
+                    </div>
+                  </button>
+                  
+                  <button
+                    onClick={() => openFileSelect('translate')}
+                    className="w-full px-4 py-3 flex items-center gap-3 hover:bg-primary/5 transition-colors text-left border-t border-border"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                      <span className="text-xl">🌐</span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm">Перевести текст</p>
+                      <p className="text-xs text-muted-foreground">Из галереи</p>
+                    </div>
+                  </button>
+                  
+                  <button
+                    onClick={() => startCamera('translate')}
+                    className="w-full px-4 py-3 flex items-center gap-3 hover:bg-primary/5 transition-colors text-left border-t border-border"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                      <span className="text-xl">📱</span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm">Перевести с камеры</p>
+                      <p className="text-xs text-muted-foreground">Навести на текст</p>
+                    </div>
+                  </button>
+                  
+                  <button
+                    onClick={() => openFileSelect('solve')}
+                    className="w-full px-4 py-3 flex items-center gap-3 hover:bg-primary/5 transition-colors text-left border-t border-border"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                      <span className="text-xl">🧮</span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm">Решить задачу</p>
+                      <p className="text-xs text-muted-foreground">Из галереи</p>
+                    </div>
+                  </button>
+                  
+                  <button
+                    onClick={() => startCamera('solve')}
+                    className="w-full px-4 py-3 flex items-center gap-3 hover:bg-primary/5 transition-colors text-left border-t border-border"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                      <span className="text-xl">📐</span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm">Решить с камеры</p>
+                      <p className="text-xs text-muted-foreground">Навести на задачу</p>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
             <div className="flex-1 relative">
               <Input
                 value={inputValue}
