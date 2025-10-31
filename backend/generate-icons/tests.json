@@ -1,0 +1,11 @@
+[
+  {
+    "name": "Generate PWA icons",
+    "request": {
+      "method": "GET"
+    },
+    "expected": {
+      "statusCode": 200
+    }
+  }
+]

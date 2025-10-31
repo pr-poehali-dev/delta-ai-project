@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PWA Icon Generator - Delta AI</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #8B5CF6;
+            margin-top: 0;
+        }
+        button {
+            background: #8B5CF6;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 10px 10px 10px 0;
+        }
+        button:hover {
+            background: #7C3AED;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .output {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 6px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .preview {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .preview img {
+            border: 1px solid #ddd;
+            border-radius: 6px;
+        }
+        .error {
+            color: #dc2626;
+            background: #fee2e2;
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 10px;
+        }
+        .success {
+            color: #16a34a;
+            background: #dcfce7;
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 PWA Icon Generator for Delta AI</h1>
+        <p>This tool will download the source image and generate 192x192 and 512x512 PNG icons for your Progressive Web App.</p>
+        
+        <button id="generateBtn" onclick="generateIcons()">Generate Icons</button>
+        <button id="downloadBtn" onclick="downloadAll()" disabled>Download All Icons</button>
+        
+        <div id="output"></div>
+        <div id="preview" class="preview"></div>
+    </div>
+
+    <script>
+        const IMAGE_URL = 'https://cdn.poehali.dev/projects/adff2728-217a-4fb9-ab5c-828b17049436/files/6fe05900-96de-4b4a-ab0b-ea60d03dbec9.jpg';
+        let generatedIcons = {};
+
+        function log(message, type = 'info') {
+            const output = document.getElementById('output');
+            const div = document.createElement('div');
+            div.className = type === 'error' ? 'error' : type === 'success' ? 'success' : 'output';
+            div.textContent = message;
+            output.appendChild(div);
+        }
+
+        async function generateIcons() {
+            const btn = document.getElementById('generateBtn');
+            const downloadBtn = document.getElementById('downloadBtn');
+            const output = document.getElementById('output');
+            const preview = document.getElementById('preview');
+            
+            output.innerHTML = '';
+            preview.innerHTML = '';
+            btn.disabled = true;
+            downloadBtn.disabled = true;
+            generatedIcons = {};
+
+            try {
+                log('📥 Downloading source image...');
+                const response = await fetch(IMAGE_URL);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const blob = await response.blob();
+                log(`✅ Downloaded ${(blob.size / 1024).toFixed(2)} KB`);
+
+                const img = await createImageBitmap(blob);
+                log(`✅ Image loaded: ${img.width}x${img.height}`);
+
+                // Generate 192x192
+                log('🎨 Generating 192x192 icon...');
+                const blob192 = await resizeImage(img, 192);
+                generatedIcons['icon-192.png'] = blob192;
+                log('✅ 192x192 icon generated');
+                preview.innerHTML += `<div><img src="${URL.createObjectURL(blob192)}" width="192" height="192"><br>icon-192.png</div>`;
+
+                // Generate 512x512
+                log('🎨 Generating 512x512 icon...');
+                const blob512 = await resizeImage(img, 512);
+                generatedIcons['icon-512.png'] = blob512;
+                log('✅ 512x512 icon generated');
+                preview.innerHTML += `<div><img src="${URL.createObjectURL(blob512)}" width="192" height="192"><br>icon-512.png (shown at 192px)</div>`;
+
+                log('✨ All icons generated successfully!', 'success');
+                downloadBtn.disabled = false;
+
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+                console.error(error);
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        async function resizeImage(imageBitmap, size) {
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            
+            // Calculate crop dimensions for center-crop cover fit
+            const sourceRatio = imageBitmap.width / imageBitmap.height;
+            const targetRatio = 1; // square
+            
+            let sx, sy, sWidth, sHeight;
+            
+            if (sourceRatio > targetRatio) {
+                // Source is wider
+                sHeight = imageBitmap.height;
+                sWidth = sHeight * targetRatio;
+                sx = (imageBitmap.width - sWidth) / 2;
+                sy = 0;
+            } else {
+                // Source is taller or equal
+                sWidth = imageBitmap.width;
+                sHeight = sWidth / targetRatio;
+                sx = 0;
+                sy = (imageBitmap.height - sHeight) / 2;
+            }
+            
+            ctx.drawImage(imageBitmap, sx, sy, sWidth, sHeight, 0, 0, size, size);
+            
+            return new Promise((resolve) => {
+                canvas.toBlob((blob) => resolve(blob), 'image/png', 0.9);
+            });
+        }
+
+        function downloadAll() {
+            for (const [filename, blob] of Object.entries(generatedIcons)) {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+            log('💾 Downloads initiated! Check your Downloads folder.', 'success');
+            log('📁 Move the downloaded files to your project\'s public/ directory.');
+        }
+    </script>
+</body>
+</html>
