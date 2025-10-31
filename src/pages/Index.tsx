@@ -220,39 +220,42 @@ const Index = () => {
     setSelectedImage(null);
     setIsTyping(true);
 
-    setTimeout(() => {
-      const mockResponses = [
-        'Отличный вопрос! Давайте разберём это подробнее.',
-        'Я могу помочь с этим. Вот что я думаю...',
-        'Интересная задача! Вот решение...',
-        'Конечно, я могу это объяснить.',
-      ];
-      
-      const mockSources = [
-        'Wikipedia',
-        'Google Scholar',
-        'Research Paper',
-        'Official Documentation',
-        'Stack Overflow',
-      ];
-
+    try {
       const searchQuery = isAdminMode ? `🔍 Поиск: "${messageText.slice(0, 50)}..."` : undefined;
+      
+      const response = await fetch('https://functions.poehali.dev/a1a027d6-9a1d-4267-a1bc-c453da93fe8a', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: messageText }),
+      });
+
+      const data = await response.json();
       
       const botMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: mockResponses[Math.floor(Math.random() * mockResponses.length)] + ' ' + messageText,
+        content: data.response || 'Извините, произошла ошибка при обработке запроса.',
         sender: 'bot',
         timestamp: new Date(),
-        sources: Array.from({ length: Math.floor(Math.random() * 3) + 1 }, () => 
-          mockSources[Math.floor(Math.random() * mockSources.length)]
-        ),
+        sources: data.sources || [],
         searchQuery,
       };
 
       setMessages(prev => [...prev, botMessage]);
       setIsTyping(false);
       speakText(botMessage.content);
-    }, 1500);
+    } catch (error) {
+      console.error('Error calling AI:', error);
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content: 'Извините, произошла ошибка при соединении с AI. Попробуйте позже.',
+        sender: 'bot',
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, errorMessage]);
+      setIsTyping(false);
+    }
   };
 
   if (showWelcome) {
@@ -590,17 +593,17 @@ const Index = () => {
             <div className="relative">
               <button
                 onClick={() => setShowActionMenu(!showActionMenu)}
-                className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                className={`w-12 h-12 rounded-full flex items-center justify-center ${
                   settings.darkTheme 
                     ? 'bg-gray-800 hover:bg-gray-700' 
                     : 'bg-gray-100 hover:bg-gray-200'
                 }`}
               >
-                <Icon name="Plus" size={20} className={settings.darkTheme ? 'text-white' : 'text-gray-900'} />
+                <Icon name="Plus" size={22} className={settings.darkTheme ? 'text-white' : 'text-gray-900'} />
               </button>
               
               {showActionMenu && (
-                <div className={`absolute bottom-12 left-0 rounded-2xl shadow-2xl p-3 space-y-2 w-48 ${
+                <div className={`absolute bottom-16 left-0 rounded-2xl shadow-2xl p-3 space-y-2 w-48 ${
                   settings.darkTheme ? 'bg-gray-800' : 'bg-white'
                 }`}>
                   <button
@@ -664,7 +667,7 @@ const Index = () => {
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
               placeholder="Введите сообщение..."
-              className={`flex-1 rounded-full ${
+              className={`flex-1 rounded-full h-12 text-base ${
                 settings.darkTheme 
                   ? 'bg-gray-800 border-gray-700 text-white placeholder:text-gray-500' 
                   : 'bg-white border-gray-200'
@@ -675,13 +678,13 @@ const Index = () => {
               onClick={() => handleSendMessage()}
               disabled={!inputValue.trim() && !selectedImage}
               size="icon"
-              className={`rounded-full w-10 h-10 ${
+              className={`rounded-full w-12 h-12 ${
                 settings.darkTheme 
                   ? 'bg-blue-600 hover:bg-blue-700' 
                   : 'bg-blue-500 hover:bg-blue-600'
               }`}
             >
-              <Icon name="Send" size={18} className="text-white" />
+              <Icon name="Send" size={20} className="text-white" />
             </Button>
           </div>
         </div>
