@@ -72,17 +72,46 @@ const Index = () => {
 
   const startCamera = async () => {
     try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'environment' } 
-      });
-      setStream(mediaStream);
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        alert('Ваш браузер не поддерживает доступ к камере. Попробуйте использовать Chrome, Safari или Firefox.');
+        return;
       }
+
+      const constraints = {
+        video: {
+          facingMode: 'environment',
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        }
+      };
+
+      const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+      setStream(mediaStream);
       setShowCamera(true);
-    } catch (error) {
+      
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = mediaStream;
+          videoRef.current.play().catch(err => {
+            console.error('Video play error:', err);
+          });
+        }
+      }, 100);
+    } catch (error: any) {
       console.error('Camera access error:', error);
-      alert('Не удалось получить доступ к камере');
+      let errorMessage = 'Не удалось получить доступ к камере. ';
+      
+      if (error.name === 'NotAllowedError') {
+        errorMessage += 'Разрешите доступ к камере в настройках браузера.';
+      } else if (error.name === 'NotFoundError') {
+        errorMessage += 'Камера не найдена на устройстве.';
+      } else if (error.name === 'NotReadableError') {
+        errorMessage += 'Камера уже используется другим приложением.';
+      } else {
+        errorMessage += 'Проверьте настройки браузера и попробуйте снова.';
+      }
+      
+      alert(errorMessage);
     }
   };
 
@@ -91,9 +120,20 @@ const Index = () => {
       stream.getTracks().forEach(track => track.stop());
       setStream(null);
     }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
     setShowCamera(false);
     setCameraMode('photo');
   };
+
+  useEffect(() => {
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [stream]);
 
   const capturePhoto = () => {
     if (videoRef.current && canvasRef.current) {
