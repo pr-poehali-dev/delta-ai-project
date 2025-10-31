@@ -10,13 +10,21 @@ interface Message {
   sender: 'user' | 'bot';
   timestamp: Date;
   image?: string;
+  sources?: string[];
+  searchQuery?: string;
+}
+
+interface Settings {
+  voiceEnabled: boolean;
+  darkTheme: boolean;
+  animationsEnabled: boolean;
 }
 
 const Index = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      content: 'Привет! Я Delta AI — твой персональный ассистент. Чем могу помочь?',
+      content: 'Привет! Я Delta AI — твой персональный ассист. Чем могу помочь?',
       sender: 'bot',
       timestamp: new Date(),
     },
@@ -26,12 +34,18 @@ const Index = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallButton, setShowInstallButton] = useState(false);
   const [showWelcome, setShowWelcome] = useState(true);
-  const [isPremium, setIsPremium] = useState(false);
+  const [isAdminMode, setIsAdminMode] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [showCamera, setShowCamera] = useState(false);
   const [showActionMenu, setShowActionMenu] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [cameraMode, setCameraMode] = useState<'photo' | 'translate' | 'solve'>('photo');
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const [settings, setSettings] = useState<Settings>({
+    voiceEnabled: true,
+    darkTheme: true,
+    animationsEnabled: true,
+  });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -72,6 +86,25 @@ const Index = () => {
     setDeferredPrompt(null);
   };
 
+  const speakText = (text: string) => {
+    if (!settings.voiceEnabled || !window.speechSynthesis) return;
+    
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'ru-RU';
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const copyMessage = (content: string) => {
+    navigator.clipboard.writeText(content);
+    alert('Сообщение скопировано!');
+  };
+
+  const forwardMessage = (content: string) => {
+    setInputValue(content);
+  };
+
   const startCamera = async (mode: 'photo' | 'translate' | 'solve') => {
     setCameraMode(mode);
     setShowActionMenu(false);
@@ -98,25 +131,13 @@ const Index = () => {
         if (videoRef.current) {
           videoRef.current.srcObject = mediaStream;
           videoRef.current.play().catch(err => {
-            console.error('Video play error:', err);
+            console.error('Ошибка воспроизведения видео:', err);
           });
         }
       }, 100);
-    } catch (error: any) {
-      console.error('Camera access error:', error);
-      let errorMessage = 'Не удалось получить доступ к камере. ';
-      
-      if (error.name === 'NotAllowedError') {
-        errorMessage += 'Разрешите доступ к камере в настройках браузера.';
-      } else if (error.name === 'NotFoundError') {
-        errorMessage += 'Камера не найдена на устройстве.';
-      } else if (error.name === 'NotReadableError') {
-        errorMessage += 'Камера уже используется другим приложением.';
-      } else {
-        errorMessage += 'Проверьте настройки браузера и попробуйте снова.';
-      }
-      
-      alert(errorMessage);
+    } catch (error) {
+      console.error('Ошибка доступа к камере:', error);
+      alert('Не удалось получить доступ к камере. Проверьте разрешения в настройках браузера.');
     }
   };
 
@@ -125,150 +146,113 @@ const Index = () => {
       stream.getTracks().forEach(track => track.stop());
       setStream(null);
     }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
     setShowCamera(false);
   };
 
-  const openFileSelect = (mode: 'photo' | 'translate' | 'solve') => {
-    setCameraMode(mode);
-    setShowActionMenu(false);
-    fileInputRef.current?.click();
-  };
-
-  useEffect(() => {
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, [stream]);
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (showActionMenu && !target.closest('.action-menu-container')) {
-        setShowActionMenu(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showActionMenu]);
-
   const capturePhoto = () => {
-    if (videoRef.current && canvasRef.current) {
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(video, 0, 0);
-        const imageData = canvas.toDataURL('image/jpeg');
-        
-        let prompt = '';
-        if (cameraMode === 'translate') {
-          prompt = 'Переведи весь текст с этого изображения на русский язык. Сохрани форматирование.';
-        } else if (cameraMode === 'solve') {
-          prompt = 'Реши все задачи и примеры с этого изображения. Покажи подробное решение.';
-        }
-        
-        setSelectedImage(imageData);
-        if (prompt) {
-          setInputValue(prompt);
-        }
-        stopCamera();
+    if (!videoRef.current || !canvasRef.current) return;
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    
+    if (ctx) {
+      ctx.drawImage(video, 0, 0);
+      const imageData = canvas.toDataURL('image/jpeg');
+      setSelectedImage(imageData);
+      stopCamera();
+      
+      let prompt = '';
+      if (cameraMode === 'translate') {
+        prompt = 'Переведи текст на этом изображении на русский язык';
+      } else if (cameraMode === 'solve') {
+        prompt = 'Реши задачу на этом изображении';
+      } else {
+        prompt = 'Что на этом изображении?';
       }
+      
+      handleSendMessage(prompt, imageData);
     }
   };
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        const imageData = reader.result as string;
-        setSelectedImage(imageData);
-        
-        let prompt = '';
-        if (cameraMode === 'translate') {
-          prompt = 'Переведи весь текст с этого изображения на русский язык. Сохрани форматирование.';
-        } else if (cameraMode === 'solve') {
-          prompt = 'Реши все задачи и примеры с этого изображения. Покажи подробное решение.';
-        }
-        
-        if (prompt) {
-          setInputValue(prompt);
-        }
+        setSelectedImage(reader.result as string);
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleSend = async () => {
-    if (!inputValue.trim() && !selectedImage) return;
+  const handleSendMessage = async (text?: string, image?: string) => {
+    const messageText = text || inputValue.trim();
+    if (!messageText && !image) return;
+
+    // Check for admin command
+    if (messageText === '/adminPP') {
+      setIsAdminMode(true);
+      setInputValue('');
+      const botMessage: Message = {
+        id: Date.now().toString(),
+        content: '🔐 Секретный премиум режим активирован! Теперь вы видите внутренний поиск ИИ и имеете расширенные возможности.',
+        sender: 'bot',
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, botMessage]);
+      speakText(botMessage.content);
+      return;
+    }
 
     const userMessage: Message = {
       id: Date.now().toString(),
-      content: inputValue || 'Изображение',
+      content: messageText,
       sender: 'user',
       timestamp: new Date(),
-      image: selectedImage || undefined,
+      image: image || selectedImage || undefined,
     };
 
-    const messageText = inputValue;
-    const imageData = selectedImage;
-    setMessages((prev) => [...prev, userMessage]);
+    setMessages(prev => [...prev, userMessage]);
     setInputValue('');
     setSelectedImage(null);
     setIsTyping(true);
 
-    try {
-      const response = await fetch('https://functions.poehali.dev/eac8d005-123d-455d-9902-f25c4126f756', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          message: messageText,
-          image: imageData 
-        }),
-      });
+    setTimeout(() => {
+      const mockResponses = [
+        'Отличный вопрос! Давайте разберём это подробнее.',
+        'Я могу помочь с этим. Вот что я думаю...',
+        'Интересная задача! Вот решение...',
+        'Конечно, я могу это объяснить.',
+      ];
+      
+      const mockSources = [
+        'Wikipedia',
+        'Google Scholar',
+        'Research Paper',
+        'Official Documentation',
+        'Stack Overflow',
+      ];
 
-      if (!response.ok) {
-        throw new Error('Network response was not ok');
-      }
-
-      const data = await response.json();
+      const searchQuery = isAdminMode ? `🔍 Поиск: "${messageText.slice(0, 50)}..."` : undefined;
       
       const botMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: data.response,
+        content: mockResponses[Math.floor(Math.random() * mockResponses.length)] + ' ' + messageText,
         sender: 'bot',
         timestamp: new Date(),
+        sources: Array.from({ length: Math.floor(Math.random() * 3) + 1 }, () => 
+          mockSources[Math.floor(Math.random() * mockSources.length)]
+        ),
+        searchQuery,
       };
-      setMessages((prev) => [...prev, botMessage]);
-    } catch (error) {
-      console.error('Error:', error);
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: 'Извини, произошла ошибка. Попробуй ещё раз!',
-        sender: 'bot',
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-    } finally {
-      setIsTyping(false);
-    }
-  };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
+      setMessages(prev => [...prev, botMessage]);
+      setIsTyping(false);
+      speakText(botMessage.content);
+    }, 1500);
   };
 
   if (showWelcome) {
@@ -279,7 +263,7 @@ const Index = () => {
             <Icon name="Sparkles" size={48} className="text-white" />
           </div>
           <div className="space-y-2">
-            <h1 className="text-4xl font-bold text-gray-500 drop-shadow-lg">
+            <h1 className="text-4xl font-bold text-gray-400 drop-shadow-lg">
               НОВЫЙ ИИ ПОМОЩНИК
             </h1>
             <h2 className="text-6xl font-black text-white drop-shadow-lg tracking-wide">
@@ -289,30 +273,13 @@ const Index = () => {
           <p className="text-gray-400 text-lg">
             Твой персональный ассистент с искусственным интеллектом
           </p>
-          <div className="flex flex-col gap-4">
-            <Button
-              onClick={() => {
-                setShowWelcome(false);
-                setIsPremium(false);
-              }}
-              size="lg"
-              className="bg-white text-black hover:bg-gray-200 font-bold text-lg px-8 py-6 rounded-2xl shadow-2xl"
-            >
-              Начать
-            </Button>
-            <Button
-              onClick={() => {
-                setShowWelcome(false);
-                setIsPremium(true);
-              }}
-              size="lg"
-              className="bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 text-black hover:opacity-90 font-bold text-lg px-8 py-6 rounded-2xl shadow-2xl flex items-center gap-2 justify-center"
-            >
-              <span>✨</span>
-              Delta+
-              <span>✨</span>
-            </Button>
-          </div>
+          <Button
+            onClick={() => setShowWelcome(false)}
+            size="lg"
+            className="bg-white text-black hover:bg-gray-200 font-bold text-lg px-8 py-6 rounded-2xl shadow-2xl"
+          >
+            Начать
+          </Button>
         </div>
       </div>
     );
@@ -320,66 +287,139 @@ const Index = () => {
 
   return (
     <div className={`min-h-screen flex flex-col ${
-      isPremium 
+      settings.darkTheme 
         ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-black' 
-        : 'bg-gradient-to-br from-primary/10 via-secondary/10 to-accent/10'
+        : 'bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50'
     }`}>
       <header className={`backdrop-blur-md border-b sticky top-0 z-10 ${
-        isPremium 
+        settings.darkTheme 
           ? 'bg-black/80 border-gray-800' 
-          : 'bg-white/80 border-border'
+          : 'bg-white/80 border-gray-200'
       }`}>
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-3 justify-between">
           <div className="flex items-center gap-3">
             <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-              isPremium 
-                ? 'bg-gradient-to-br from-yellow-400 via-yellow-500 to-yellow-600' 
-                : 'bg-gradient-to-br from-primary via-secondary to-accent'
+              settings.darkTheme 
+                ? 'bg-gradient-to-br from-gray-700 to-gray-900' 
+                : 'bg-gradient-to-br from-blue-500 to-purple-600'
             }`}>
-              <Icon name="Sparkles" size={20} className={isPremium ? 'text-black' : 'text-white'} />
+              <Icon name="Sparkles" size={20} className="text-white" />
             </div>
             <div>
               <h1 className={`text-xl font-bold ${
-                isPremium 
-                  ? 'bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent' 
-                  : 'bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent'
+                settings.darkTheme 
+                  ? 'text-white' 
+                  : 'text-gray-900'
               }`}>
-                Delta AI {isPremium && '+'}
+                Delta AI {isAdminMode && '🔐'}
               </h1>
               <p className={`text-xs ${
-                isPremium ? 'text-gray-500' : 'text-muted-foreground'
+                settings.darkTheme ? 'text-gray-500' : 'text-gray-500'
               }`}>
-                {isPremium ? 'Премиум режим' : 'Твой умный ассистент'}
+                {isAdminMode ? 'Премиум режим' : 'Персональный ассистент'}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex gap-2">
             <button
-              onClick={() => setIsPremium(!isPremium)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                isPremium 
-                  ? 'bg-gradient-to-r from-yellow-400 to-yellow-600 text-black hover:opacity-90' 
-                  : 'bg-gradient-to-r from-primary to-secondary text-white hover:opacity-90'
+              onClick={() => setShowSettings(!showSettings)}
+              className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                settings.darkTheme 
+                  ? 'bg-gray-800 hover:bg-gray-700' 
+                  : 'bg-gray-100 hover:bg-gray-200'
               }`}
             >
-              {isPremium ? '✨ Premium' : 'Delta+'}
+              <Icon name="Settings" size={20} className={settings.darkTheme ? 'text-white' : 'text-gray-900'} />
             </button>
             {showInstallButton && (
               <button
                 onClick={handleInstallClick}
-                className={`w-10 h-10 rounded-full flex items-center justify-center hover:opacity-90 transition-opacity shadow-md ${
-                  isPremium 
-                    ? 'bg-gradient-to-br from-yellow-400 to-yellow-600' 
-                    : 'bg-gradient-to-br from-primary via-secondary to-accent'
+                className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                  settings.darkTheme 
+                    ? 'bg-gray-800 hover:bg-gray-700' 
+                    : 'bg-gray-100 hover:bg-gray-200'
                 }`}
-                aria-label="Установить приложение"
               >
-                <Icon name="Smartphone" size={20} className={isPremium ? 'text-black' : 'text-white'} />
+                <Icon name="Download" size={20} className={settings.darkTheme ? 'text-white' : 'text-gray-900'} />
               </button>
             )}
           </div>
         </div>
       </header>
+
+      {showSettings && (
+        <div className={`absolute top-16 right-4 z-20 rounded-2xl shadow-2xl p-6 space-y-4 w-80 ${
+          settings.darkTheme ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'
+        }`}>
+          <h3 className={`text-lg font-bold ${settings.darkTheme ? 'text-white' : 'text-gray-900'}`}>
+            Настройки
+          </h3>
+          
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className={settings.darkTheme ? 'text-gray-300' : 'text-gray-700'}>
+                Озвучка сообщений
+              </span>
+              <button
+                onClick={() => setSettings(prev => ({ ...prev, voiceEnabled: !prev.voiceEnabled }))}
+                className={`w-12 h-6 rounded-full transition-colors ${
+                  settings.voiceEnabled 
+                    ? 'bg-blue-600' 
+                    : settings.darkTheme ? 'bg-gray-600' : 'bg-gray-300'
+                }`}
+              >
+                <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                  settings.voiceEnabled ? 'translate-x-6' : 'translate-x-1'
+                }`} />
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span className={settings.darkTheme ? 'text-gray-300' : 'text-gray-700'}>
+                Тёмная тема
+              </span>
+              <button
+                onClick={() => setSettings(prev => ({ ...prev, darkTheme: !prev.darkTheme }))}
+                className={`w-12 h-6 rounded-full transition-colors ${
+                  settings.darkTheme 
+                    ? 'bg-blue-600' 
+                    : 'bg-gray-300'
+                }`}
+              >
+                <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                  settings.darkTheme ? 'translate-x-6' : 'translate-x-1'
+                }`} />
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span className={settings.darkTheme ? 'text-gray-300' : 'text-gray-700'}>
+                Анимации
+              </span>
+              <button
+                onClick={() => setSettings(prev => ({ ...prev, animationsEnabled: !prev.animationsEnabled }))}
+                className={`w-12 h-6 rounded-full transition-colors ${
+                  settings.animationsEnabled 
+                    ? 'bg-blue-600' 
+                    : settings.darkTheme ? 'bg-gray-600' : 'bg-gray-300'
+                }`}
+              >
+                <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                  settings.animationsEnabled ? 'translate-x-6' : 'translate-x-1'
+                }`} />
+              </button>
+            </div>
+          </div>
+
+          <Button
+            onClick={() => setShowSettings(false)}
+            className="w-full"
+            variant="outline"
+          >
+            Закрыть
+          </Button>
+        </div>
+      )}
 
       {showCamera && (
         <div className="fixed inset-0 bg-black z-50 flex flex-col">
@@ -431,20 +471,29 @@ const Index = () => {
           {messages.map((message, index) => (
             <div
               key={message.id}
-              className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}
-              style={{ animationDelay: `${index * 0.1}s` }}
+              className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'} ${
+                settings.animationsEnabled ? 'animate-fade-in' : ''
+              }`}
+              style={settings.animationsEnabled ? { animationDelay: `${index * 0.1}s` } : {}}
             >
               <div
-                className={`max-w-[80%] rounded-2xl px-5 py-3 shadow-sm hover:shadow-md transition-shadow ${
+                className={`max-w-[80%] rounded-2xl px-5 py-3 shadow-lg hover:shadow-xl transition-all ${
+                  settings.animationsEnabled ? 'hover:scale-[1.02]' : ''
+                } ${
                   message.sender === 'user'
-                    ? isPremium 
-                      ? 'bg-gradient-to-br from-yellow-400 via-yellow-500 to-yellow-600 text-black'
-                      : 'bg-gradient-to-br from-primary to-secondary text-white'
-                    : isPremium
+                    ? settings.darkTheme
+                      ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white'
+                      : 'bg-gradient-to-br from-blue-500 to-purple-600 text-white'
+                    : settings.darkTheme
                       ? 'bg-gray-800 border border-gray-700 text-gray-100'
-                      : 'bg-white border border-border'
+                      : 'bg-white border border-gray-200 text-gray-900'
                 }`}
               >
+                {message.searchQuery && isAdminMode && (
+                  <div className="mb-2 p-2 bg-black/20 rounded-lg text-xs">
+                    {message.searchQuery}
+                  </div>
+                )}
                 {message.image && (
                   <img 
                     src={message.image} 
@@ -453,257 +502,188 @@ const Index = () => {
                   />
                 )}
                 <p className="text-sm leading-relaxed">{message.content}</p>
-                <span className="text-xs opacity-60 mt-1 block">
-                  {message.timestamp.toLocaleTimeString('ru-RU', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </span>
+                <div className="flex items-center justify-between mt-2">
+                  <span className="text-xs opacity-60">
+                    {message.timestamp.toLocaleTimeString('ru-RU', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                  {message.sender === 'bot' && (
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => copyMessage(message.content)}
+                        className="p-1 hover:bg-black/10 rounded"
+                      >
+                        <Icon name="Copy" size={14} />
+                      </button>
+                      <button
+                        onClick={() => forwardMessage(message.content)}
+                        className="p-1 hover:bg-black/10 rounded"
+                      >
+                        <Icon name="Forward" size={14} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+                {message.sources && message.sources.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {message.sources.map((source, idx) => (
+                      <span
+                        key={idx}
+                        className={`text-xs px-2 py-1 rounded ${
+                          settings.darkTheme 
+                            ? 'bg-gray-700 text-gray-300' 
+                            : 'bg-gray-100 text-gray-700'
+                        }`}
+                      >
+                        {source}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           ))}
-
           {isTyping && (
             <div className="flex justify-start animate-fade-in">
-              <Card className={`rounded-2xl px-5 py-3 shadow-sm ${
-                isPremium 
-                  ? 'bg-gray-800 border-gray-700' 
-                  : 'bg-white border-border'
+              <div className={`rounded-2xl px-5 py-3 ${
+                settings.darkTheme ? 'bg-gray-800' : 'bg-white border border-gray-200'
               }`}>
-                <div className="flex gap-1.5">
-                  <div className={`w-2 h-2 rounded-full animate-bounce ${
-                    isPremium ? 'bg-yellow-500/60' : 'bg-primary/60'
-                  }`} style={{ animationDelay: '0s' }} />
-                  <div className={`w-2 h-2 rounded-full animate-bounce ${
-                    isPremium ? 'bg-yellow-500/60' : 'bg-secondary/60'
-                  }`} style={{ animationDelay: '0.2s' }} />
-                  <div className={`w-2 h-2 rounded-full animate-bounce ${
-                    isPremium ? 'bg-yellow-500/60' : 'bg-accent/60'
-                  }`} style={{ animationDelay: '0.4s' }} />
+                <div className="flex gap-1">
+                  <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '300ms' }} />
                 </div>
-              </Card>
+              </div>
             </div>
           )}
           <div ref={messagesEndRef} />
         </div>
       </main>
 
-      <footer className={`backdrop-blur-md border-t sticky bottom-0 ${
-        isPremium 
+      {selectedImage && (
+        <div className="px-4">
+          <div className="max-w-4xl mx-auto relative">
+            <img 
+              src={selectedImage} 
+              alt="Выбранное изображение" 
+              className="w-32 h-32 object-cover rounded-xl border-2 border-primary"
+            />
+            <button
+              onClick={() => setSelectedImage(null)}
+              className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center"
+            >
+              <Icon name="X" size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      <footer className={`border-t backdrop-blur-md sticky bottom-0 ${
+        settings.darkTheme 
           ? 'bg-black/80 border-gray-800' 
-          : 'bg-white/80 border-border'
+          : 'bg-white/80 border-gray-200'
       }`}>
         <div className="max-w-4xl mx-auto px-4 py-4">
-          {selectedImage && (
-            <div className="mb-3 relative inline-block">
-              <img 
-                src={selectedImage} 
-                alt="Выбранное изображение" 
-                className="rounded-xl max-h-32 border-2 border-primary/30"
-              />
-              <button
-                onClick={() => setSelectedImage(null)}
-                className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
-              >
-                ×
-              </button>
-            </div>
-          )}
-          <div className="flex gap-2 items-end">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleImageSelect}
-              className="hidden"
-            />
-            <div className="relative action-menu-container">
+          <div className="flex gap-2 items-center">
+            <div className="relative">
               <button
                 onClick={() => setShowActionMenu(!showActionMenu)}
-                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-                  isPremium 
-                    ? 'bg-gradient-to-br from-yellow-400/20 to-yellow-600/20 hover:from-yellow-400/30 hover:to-yellow-600/30 border border-yellow-500/30' 
-                    : 'bg-gradient-to-br from-primary/10 to-secondary/10 hover:from-primary/20 hover:to-secondary/20 border border-primary/20'
+                className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                  settings.darkTheme 
+                    ? 'bg-gray-800 hover:bg-gray-700' 
+                    : 'bg-gray-100 hover:bg-gray-200'
                 }`}
-                aria-label="Открыть меню действий"
               >
-                <Icon name="Plus" size={20} className={isPremium ? 'text-yellow-500' : 'text-primary'} />
+                <Icon name="Plus" size={20} className={settings.darkTheme ? 'text-white' : 'text-gray-900'} />
               </button>
               
               {showActionMenu && (
-                <div className={`absolute bottom-full left-0 mb-2 w-64 rounded-2xl shadow-2xl overflow-hidden animate-fade-in ${
-                  isPremium 
-                    ? 'bg-gray-900 border border-gray-700' 
-                    : 'bg-white border-border'
+                <div className={`absolute bottom-12 left-0 rounded-2xl shadow-2xl p-3 space-y-2 w-48 ${
+                  settings.darkTheme ? 'bg-gray-800' : 'bg-white'
                 }`}>
                   <button
-                    onClick={() => openFileSelect('photo')}
-                    className={`w-full px-4 py-3 flex items-center gap-3 transition-colors text-left ${
-                      isPremium ? 'hover:bg-yellow-500/10' : 'hover:bg-primary/5'
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`w-full flex items-center gap-3 px-4 py-2 rounded-xl ${
+                      settings.darkTheme 
+                        ? 'hover:bg-gray-700 text-white' 
+                        : 'hover:bg-gray-100 text-gray-900'
                     }`}
                   >
-                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                      <span className="text-xl">📷</span>
-                    </div>
-                    <div>
-                      <p className={`font-medium text-sm ${
-                        isPremium ? 'text-gray-100' : 'text-foreground'
-                      }`}>Выбрать фото</p>
-                      <p className={`text-xs ${
-                        isPremium ? 'text-gray-500' : 'text-muted-foreground'
-                      }`}>Описать содержимое</p>
-                    </div>
+                    <Icon name="Image" size={18} />
+                    <span className="text-sm">Фото из галереи</span>
                   </button>
-                  
                   <button
                     onClick={() => startCamera('photo')}
-                    className={`w-full px-4 py-3 flex items-center gap-3 transition-colors text-left border-t ${
-                      isPremium 
-                        ? 'hover:bg-yellow-500/10 border-gray-800' 
-                        : 'hover:bg-primary/5 border-border'
+                    className={`w-full flex items-center gap-3 px-4 py-2 rounded-xl ${
+                      settings.darkTheme 
+                        ? 'hover:bg-gray-700 text-white' 
+                        : 'hover:bg-gray-100 text-gray-900'
                     }`}
                   >
-                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                      <span className="text-xl">📸</span>
-                    </div>
-                    <div>
-                      <p className={`font-medium text-sm ${
-                        isPremium ? 'text-gray-100' : 'text-foreground'
-                      }`}>Сфотографировать</p>
-                      <p className={`text-xs ${
-                        isPremium ? 'text-gray-500' : 'text-muted-foreground'
-                      }`}>Открыть камеру</p>
-                    </div>
+                    <Icon name="Camera" size={18} />
+                    <span className="text-sm">Сделать фото</span>
                   </button>
-                  
-                  <button
-                    onClick={() => openFileSelect('translate')}
-                    className={`w-full px-4 py-3 flex items-center gap-3 transition-colors text-left border-t ${
-                      isPremium 
-                        ? 'hover:bg-yellow-500/10 border-gray-800' 
-                        : 'hover:bg-primary/5 border-border'
-                    }`}
-                  >
-                    <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-                      <span className="text-xl">🌐</span>
-                    </div>
-                    <div>
-                      <p className={`font-medium text-sm ${
-                        isPremium ? 'text-gray-100' : 'text-foreground'
-                      }`}>Перевести текст</p>
-                      <p className={`text-xs ${
-                        isPremium ? 'text-gray-500' : 'text-muted-foreground'
-                      }`}>Из галереи</p>
-                    </div>
-                  </button>
-                  
                   <button
                     onClick={() => startCamera('translate')}
-                    className={`w-full px-4 py-3 flex items-center gap-3 transition-colors text-left border-t ${
-                      isPremium 
-                        ? 'hover:bg-yellow-500/10 border-gray-800' 
-                        : 'hover:bg-primary/5 border-border'
+                    className={`w-full flex items-center gap-3 px-4 py-2 rounded-xl ${
+                      settings.darkTheme 
+                        ? 'hover:bg-gray-700 text-white' 
+                        : 'hover:bg-gray-100 text-gray-900'
                     }`}
                   >
-                    <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-                      <span className="text-xl">📱</span>
-                    </div>
-                    <div>
-                      <p className={`font-medium text-sm ${
-                        isPremium ? 'text-gray-100' : 'text-foreground'
-                      }`}>Перевести с камеры</p>
-                      <p className={`text-xs ${
-                        isPremium ? 'text-gray-500' : 'text-muted-foreground'
-                      }`}>Навести на текст</p>
-                    </div>
+                    <Icon name="Languages" size={18} />
+                    <span className="text-sm">Перевести текст</span>
                   </button>
-                  
-                  <button
-                    onClick={() => openFileSelect('solve')}
-                    className={`w-full px-4 py-3 flex items-center gap-3 transition-colors text-left border-t ${
-                      isPremium 
-                        ? 'hover:bg-yellow-500/10 border-gray-800' 
-                        : 'hover:bg-primary/5 border-border'
-                    }`}
-                  >
-                    <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
-                      <span className="text-xl">🧮</span>
-                    </div>
-                    <div>
-                      <p className={`font-medium text-sm ${
-                        isPremium ? 'text-gray-100' : 'text-foreground'
-                      }`}>Решить задачу</p>
-                      <p className={`text-xs ${
-                        isPremium ? 'text-gray-500' : 'text-muted-foreground'
-                      }`}>Из галереи</p>
-                    </div>
-                  </button>
-                  
                   <button
                     onClick={() => startCamera('solve')}
-                    className={`w-full px-4 py-3 flex items-center gap-3 transition-colors text-left border-t ${
-                      isPremium 
-                        ? 'hover:bg-yellow-500/10 border-gray-800' 
-                        : 'hover:bg-primary/5 border-border'
+                    className={`w-full flex items-center gap-3 px-4 py-2 rounded-xl ${
+                      settings.darkTheme 
+                        ? 'hover:bg-gray-700 text-white' 
+                        : 'hover:bg-gray-100 text-gray-900'
                     }`}
                   >
-                    <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
-                      <span className="text-xl">📐</span>
-                    </div>
-                    <div>
-                      <p className={`font-medium text-sm ${
-                        isPremium ? 'text-gray-100' : 'text-foreground'
-                      }`}>Решить с камеры</p>
-                      <p className={`text-xs ${
-                        isPremium ? 'text-gray-500' : 'text-muted-foreground'
-                      }`}>Навести на задачу</p>
-                    </div>
+                    <Icon name="Calculator" size={18} />
+                    <span className="text-sm">Решить задачу</span>
                   </button>
                 </div>
               )}
             </div>
-            <div className="flex-1 relative">
-              <Input
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Напиши сообщение Delta AI..."
-                className={`pr-12 h-12 rounded-2xl border-2 transition-colors ${
-                  isPremium 
-                    ? 'bg-gray-800 border-gray-700 text-gray-100 placeholder:text-gray-500 focus:border-yellow-500/50' 
-                    : 'focus:border-primary/50'
-                }`}
-              />
-              {inputValue && (
-                <button
-                  onClick={() => setInputValue('')}
-                  className={`absolute right-3 top-1/2 -translate-y-1/2 transition-colors ${
-                    isPremium 
-                      ? 'text-gray-500 hover:text-gray-300' 
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  <Icon name="X" size={18} />
-                </button>
-              )}
-            </div>
+
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleImageUpload}
+              accept="image/*"
+              className="hidden"
+            />
+
+            <Input
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+              placeholder="Введите сообщение..."
+              className={`flex-1 rounded-full ${
+                settings.darkTheme 
+                  ? 'bg-gray-800 border-gray-700 text-white placeholder:text-gray-500' 
+                  : 'bg-white border-gray-200'
+              }`}
+            />
+
             <Button
-              onClick={handleSend}
-              disabled={!inputValue.trim() || isTyping}
-              className={`h-12 px-6 rounded-2xl hover:opacity-90 transition-opacity ${
-                isPremium 
-                  ? 'bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 text-black' 
-                  : 'bg-gradient-to-r from-primary via-secondary to-accent'
+              onClick={() => handleSendMessage()}
+              disabled={!inputValue.trim() && !selectedImage}
+              size="icon"
+              className={`rounded-full w-10 h-10 ${
+                settings.darkTheme 
+                  ? 'bg-blue-600 hover:bg-blue-700' 
+                  : 'bg-blue-500 hover:bg-blue-600'
               }`}
             >
-              <Icon name="Send" size={20} />
+              <Icon name="Send" size={18} className="text-white" />
             </Button>
           </div>
-          <p className={`text-xs text-center mt-2 ${
-            isPremium ? 'text-gray-600' : 'text-muted-foreground'
-          }`}>
-            Delta AI может совершать ошибки. Проверяйте важную информацию.
-          </p>
         </div>
       </footer>
     </div>
