@@ -27,8 +27,13 @@ const Index = () => {
   const [showInstallButton, setShowInstallButton] = useState(false);
   const [showWelcome, setShowWelcome] = useState(true);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [showCamera, setShowCamera] = useState(false);
+  const [cameraMode, setCameraMode] = useState<'photo' | 'translate' | 'solve'>('photo');
+  const [stream, setStream] = useState<MediaStream | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -63,6 +68,58 @@ const Index = () => {
     }
     
     setDeferredPrompt(null);
+  };
+
+  const startCamera = async () => {
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment' } 
+      });
+      setStream(mediaStream);
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+      }
+      setShowCamera(true);
+    } catch (error) {
+      console.error('Camera access error:', error);
+      alert('Не удалось получить доступ к камере');
+    }
+  };
+
+  const stopCamera = () => {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      setStream(null);
+    }
+    setShowCamera(false);
+    setCameraMode('photo');
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0);
+        const imageData = canvas.toDataURL('image/jpeg');
+        
+        let prompt = '';
+        if (cameraMode === 'translate') {
+          prompt = 'Переведи весь текст с этого изображения на русский язык. Сохрани форматирование.';
+        } else if (cameraMode === 'solve') {
+          prompt = 'Реши все задачи и примеры с этого изображения. Покажи подробное решение.';
+        }
+        
+        setSelectedImage(imageData);
+        if (prompt) {
+          setInputValue(prompt);
+        }
+        stopCamera();
+      }
+    }
   };
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -185,17 +242,94 @@ const Index = () => {
               <p className="text-xs text-muted-foreground">Твой умный ассистент</p>
             </div>
           </div>
-          {showInstallButton && (
+          <div className="flex items-center gap-2">
             <button
-              onClick={handleInstallClick}
+              onClick={startCamera}
               className="w-10 h-10 rounded-full bg-gradient-to-br from-primary via-secondary to-accent flex items-center justify-center hover:opacity-90 transition-opacity shadow-md"
-              aria-label="Установить приложение"
+              aria-label="Открыть камеру"
             >
-              <Icon name="Smartphone" size={20} className="text-white" />
+              <Icon name="Camera" size={20} className="text-white" />
             </button>
-          )}
+            {showInstallButton && (
+              <button
+                onClick={handleInstallClick}
+                className="w-10 h-10 rounded-full bg-gradient-to-br from-primary via-secondary to-accent flex items-center justify-center hover:opacity-90 transition-opacity shadow-md"
+                aria-label="Установить приложение"
+              >
+                <Icon name="Smartphone" size={20} className="text-white" />
+              </button>
+            )}
+          </div>
         </div>
       </header>
+
+      {showCamera && (
+        <div className="fixed inset-0 bg-black z-50 flex flex-col">
+          <div className="flex items-center justify-between p-4 bg-black/50">
+            <button
+              onClick={stopCamera}
+              className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center"
+            >
+              <Icon name="X" size={24} className="text-white" />
+            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setCameraMode('photo')}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                  cameraMode === 'photo'
+                    ? 'bg-white text-black'
+                    : 'bg-white/20 text-white backdrop-blur-md'
+                }`}
+              >
+                📸 Фото
+              </button>
+              <button
+                onClick={() => setCameraMode('translate')}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                  cameraMode === 'translate'
+                    ? 'bg-white text-black'
+                    : 'bg-white/20 text-white backdrop-blur-md'
+                }`}
+              >
+                🌐 Перевод
+              </button>
+              <button
+                onClick={() => setCameraMode('solve')}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                  cameraMode === 'solve'
+                    ? 'bg-white text-black'
+                    : 'bg-white/20 text-white backdrop-blur-md'
+                }`}
+              >
+                🧮 Решить
+              </button>
+            </div>
+          </div>
+          <div className="flex-1 relative">
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              className="w-full h-full object-cover"
+            />
+            <canvas ref={canvasRef} className="hidden" />
+          </div>
+          <div className="p-6 bg-black/50 flex flex-col items-center gap-3">
+            {cameraMode === 'translate' && (
+              <p className="text-white text-sm text-center">📱 Наведите на текст для перевода</p>
+            )}
+            {cameraMode === 'solve' && (
+              <p className="text-white text-sm text-center">🧮 Наведите на задачу для решения</p>
+            )}
+            <button
+              onClick={capturePhoto}
+              className="w-16 h-16 rounded-full bg-white flex items-center justify-center hover:scale-110 transition-transform shadow-2xl"
+            >
+              <div className="w-14 h-14 rounded-full border-4 border-black" />
+            </button>
+          </div>
+        </div>
+      )}
 
       <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-6 overflow-y-auto">
         <div className="space-y-4">
