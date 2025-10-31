@@ -32,30 +32,7 @@ const Index = () => {
     scrollToBottom();
   }, [messages]);
 
-  const generateBotResponse = (userMessage: string): string => {
-    const responses = [
-      'Отличный вопрос! Дай мне секунду подумать...',
-      'Я понимаю тебя. Вот что я думаю по этому поводу...',
-      'Интересно! Давай разберём это вместе.',
-      'Я здесь, чтобы помочь. Вот моя мысль...',
-      'Спасибо за вопрос! Позволь мне объяснить...',
-    ];
-
-    const topics = [
-      'программировании',
-      'дизайне',
-      'искусственном интеллекте',
-      'веб-разработке',
-      'творчестве',
-    ];
-
-    const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-    const randomTopic = topics[Math.floor(Math.random() * topics.length)];
-
-    return `${randomResponse} Я могу помочь с вопросами о ${randomTopic}. Что конкретно тебя интересует?`;
-  };
-
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!inputValue.trim()) return;
 
     const userMessage: Message = {
@@ -65,20 +42,45 @@ const Index = () => {
       timestamp: new Date(),
     };
 
+    const messageText = inputValue;
     setMessages((prev) => [...prev, userMessage]);
     setInputValue('');
     setIsTyping(true);
 
-    setTimeout(() => {
+    try {
+      const response = await fetch('https://functions.poehali.dev/eac8d005-123d-455d-9902-f25c4126f756', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: messageText }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+
+      const data = await response.json();
+      
       const botMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: generateBotResponse(inputValue),
+        content: data.response,
         sender: 'bot',
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, botMessage]);
+    } catch (error) {
+      console.error('Error:', error);
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content: 'Извини, произошла ошибка. Попробуй ещё раз!',
+        sender: 'bot',
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
       setIsTyping(false);
-    }, 1500);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {

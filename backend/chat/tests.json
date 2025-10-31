@@ -1,0 +1,30 @@
+{
+  "tests": [
+    {
+      "name": "Test chat message",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "message": "Привет!"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "response": "string",
+        "request_id": "string"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Test empty message",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "message": ""
+      },
+      "expectedStatus": 400,
+      "expectedBody": {
+        "error": "Message is required"
+      }
+    }
+  ]
+}
