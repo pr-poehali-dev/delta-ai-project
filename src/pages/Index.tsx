@@ -24,6 +24,7 @@ const Index = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallButton, setShowInstallButton] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -119,10 +120,51 @@ const Index = () => {
     }
   };
 
+  if (showWelcome) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary via-secondary to-accent flex items-center justify-center p-4">
+        <div className="max-w-md w-full text-center space-y-8 animate-fade-in">
+          <div className="w-24 h-24 mx-auto rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center shadow-2xl">
+            <Icon name="Sparkles" size={48} className="text-white" />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-4xl font-bold text-white drop-shadow-lg">
+              НОВЫЙ ИИ ПОМОЩНИК
+            </h1>
+            <h2 className="text-6xl font-black text-white drop-shadow-lg tracking-wide">
+              DELTA
+            </h2>
+          </div>
+          <p className="text-white/90 text-lg">
+            Твой персональный ассистент с искусственным интеллектом
+          </p>
+          <Button
+            onClick={() => setShowWelcome(false)}
+            size="lg"
+            className="bg-white text-primary hover:bg-white/90 font-bold text-lg px-8 py-6 rounded-2xl shadow-2xl"
+          >
+            Начать
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/10 via-secondary/10 to-accent/10 flex flex-col">
       <header className="bg-white/80 backdrop-blur-md border-b border-border sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-3">
+        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-3 justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary via-secondary to-accent flex items-center justify-center">
+              <Icon name="Sparkles" size={20} className="text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
+                Delta AI
+              </h1>
+              <p className="text-xs text-muted-foreground">Твой умный ассистент</p>
+            </div>
+          </div>
           {showInstallButton && (
             <button
               onClick={handleInstallClick}
@@ -132,15 +174,6 @@ const Index = () => {
               <Icon name="Smartphone" size={20} className="text-white" />
             </button>
           )}
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary via-secondary to-accent flex items-center justify-center">
-            <Icon name="Sparkles" size={20} className="text-white" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
-              Delta AI
-            </h1>
-            <p className="text-xs text-muted-foreground">Твой умный ассистент</p>
-          </div>
         </div>
       </header>
 
