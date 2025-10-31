@@ -26,6 +26,7 @@ const Index = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallButton, setShowInstallButton] = useState(false);
   const [showWelcome, setShowWelcome] = useState(true);
+  const [isPremium, setIsPremium] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [showCamera, setShowCamera] = useState(false);
   const [showActionMenu, setShowActionMenu] = useState(false);
@@ -272,58 +273,111 @@ const Index = () => {
 
   if (showWelcome) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary via-secondary to-accent flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center p-4">
         <div className="max-w-md w-full text-center space-y-8 animate-fade-in">
-          <div className="w-24 h-24 mx-auto rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center shadow-2xl">
+          <div className="w-24 h-24 mx-auto rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center shadow-2xl">
             <Icon name="Sparkles" size={48} className="text-white" />
           </div>
           <div className="space-y-2">
-            <h1 className="text-4xl font-bold text-white drop-shadow-lg">
+            <h1 className="text-4xl font-bold text-gray-500 drop-shadow-lg">
               НОВЫЙ ИИ ПОМОЩНИК
             </h1>
             <h2 className="text-6xl font-black text-white drop-shadow-lg tracking-wide">
               DELTA
             </h2>
           </div>
-          <p className="text-white/90 text-lg">
+          <p className="text-gray-400 text-lg">
             Твой персональный ассистент с искусственным интеллектом
           </p>
-          <Button
-            onClick={() => setShowWelcome(false)}
-            size="lg"
-            className="bg-white text-primary hover:bg-white/90 font-bold text-lg px-8 py-6 rounded-2xl shadow-2xl"
-          >
-            Начать
-          </Button>
+          <div className="flex flex-col gap-4">
+            <Button
+              onClick={() => {
+                setShowWelcome(false);
+                setIsPremium(false);
+              }}
+              size="lg"
+              className="bg-white text-black hover:bg-gray-200 font-bold text-lg px-8 py-6 rounded-2xl shadow-2xl"
+            >
+              Начать
+            </Button>
+            <Button
+              onClick={() => {
+                setShowWelcome(false);
+                setIsPremium(true);
+              }}
+              size="lg"
+              className="bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 text-black hover:opacity-90 font-bold text-lg px-8 py-6 rounded-2xl shadow-2xl flex items-center gap-2 justify-center"
+            >
+              <span>✨</span>
+              Delta+
+              <span>✨</span>
+            </Button>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/10 via-secondary/10 to-accent/10 flex flex-col">
-      <header className="bg-white/80 backdrop-blur-md border-b border-border sticky top-0 z-10">
+    <div className={`min-h-screen flex flex-col ${
+      isPremium 
+        ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-black' 
+        : 'bg-gradient-to-br from-primary/10 via-secondary/10 to-accent/10'
+    }`}>
+      <header className={`backdrop-blur-md border-b sticky top-0 z-10 ${
+        isPremium 
+          ? 'bg-black/80 border-gray-800' 
+          : 'bg-white/80 border-border'
+      }`}>
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-3 justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary via-secondary to-accent flex items-center justify-center">
-              <Icon name="Sparkles" size={20} className="text-white" />
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+              isPremium 
+                ? 'bg-gradient-to-br from-yellow-400 via-yellow-500 to-yellow-600' 
+                : 'bg-gradient-to-br from-primary via-secondary to-accent'
+            }`}>
+              <Icon name="Sparkles" size={20} className={isPremium ? 'text-black' : 'text-white'} />
             </div>
             <div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
-                Delta AI
+              <h1 className={`text-xl font-bold ${
+                isPremium 
+                  ? 'bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent' 
+                  : 'bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent'
+              }`}>
+                Delta AI {isPremium && '+'}
               </h1>
-              <p className="text-xs text-muted-foreground">Твой умный ассистент</p>
+              <p className={`text-xs ${
+                isPremium ? 'text-gray-500' : 'text-muted-foreground'
+              }`}>
+                {isPremium ? 'Премиум режим' : 'Твой умный ассистент'}
+              </p>
             </div>
           </div>
-          {showInstallButton && (
+          <div className="flex items-center gap-2">
             <button
-              onClick={handleInstallClick}
-              className="w-10 h-10 rounded-full bg-gradient-to-br from-primary via-secondary to-accent flex items-center justify-center hover:opacity-90 transition-opacity shadow-md"
-              aria-label="Установить приложение"
+              onClick={() => setIsPremium(!isPremium)}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                isPremium 
+                  ? 'bg-gradient-to-r from-yellow-400 to-yellow-600 text-black hover:opacity-90' 
+                  : 'bg-gradient-to-r from-primary to-secondary text-white hover:opacity-90'
+              }`}
             >
-              <Icon name="Smartphone" size={20} className="text-white" />
+              {isPremium ? '✨ Premium' : 'Delta+'}
             </button>
-          )}
+            {showInstallButton && (
+              <button
+                onClick={handleInstallClick}
+                className={`w-10 h-10 rounded-full flex items-center justify-center hover:opacity-90 transition-opacity shadow-md ${
+                  isPremium 
+                    ? 'bg-gradient-to-br from-yellow-400 to-yellow-600' 
+                    : 'bg-gradient-to-br from-primary via-secondary to-accent'
+                }`}
+                aria-label="Установить приложение"
+              >
+                <Icon name="Smartphone" size={20} className={isPremium ? 'text-black' : 'text-white'} />
+              </button>
+            )}
+          </div>
         </div>
       </header>
 
@@ -381,11 +435,15 @@ const Index = () => {
               style={{ animationDelay: `${index * 0.1}s` }}
             >
               <div
-                className={`max-w-[80%] ${
+                className={`max-w-[80%] rounded-2xl px-5 py-3 shadow-sm hover:shadow-md transition-shadow ${
                   message.sender === 'user'
-                    ? 'bg-gradient-to-br from-primary to-secondary text-white'
-                    : 'bg-white border border-border'
-                } rounded-2xl px-5 py-3 shadow-sm hover:shadow-md transition-shadow`}
+                    ? isPremium 
+                      ? 'bg-gradient-to-br from-yellow-400 via-yellow-500 to-yellow-600 text-black'
+                      : 'bg-gradient-to-br from-primary to-secondary text-white'
+                    : isPremium
+                      ? 'bg-gray-800 border border-gray-700 text-gray-100'
+                      : 'bg-white border border-border'
+                }`}
               >
                 {message.image && (
                   <img 
@@ -407,11 +465,21 @@ const Index = () => {
 
           {isTyping && (
             <div className="flex justify-start animate-fade-in">
-              <Card className="bg-white border border-border rounded-2xl px-5 py-3 shadow-sm">
+              <Card className={`rounded-2xl px-5 py-3 shadow-sm ${
+                isPremium 
+                  ? 'bg-gray-800 border-gray-700' 
+                  : 'bg-white border-border'
+              }`}>
                 <div className="flex gap-1.5">
-                  <div className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '0s' }} />
-                  <div className="w-2 h-2 bg-secondary/60 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
-                  <div className="w-2 h-2 bg-accent/60 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
+                  <div className={`w-2 h-2 rounded-full animate-bounce ${
+                    isPremium ? 'bg-yellow-500/60' : 'bg-primary/60'
+                  }`} style={{ animationDelay: '0s' }} />
+                  <div className={`w-2 h-2 rounded-full animate-bounce ${
+                    isPremium ? 'bg-yellow-500/60' : 'bg-secondary/60'
+                  }`} style={{ animationDelay: '0.2s' }} />
+                  <div className={`w-2 h-2 rounded-full animate-bounce ${
+                    isPremium ? 'bg-yellow-500/60' : 'bg-accent/60'
+                  }`} style={{ animationDelay: '0.4s' }} />
                 </div>
               </Card>
             </div>
@@ -420,7 +488,11 @@ const Index = () => {
         </div>
       </main>
 
-      <footer className="bg-white/80 backdrop-blur-md border-t border-border sticky bottom-0">
+      <footer className={`backdrop-blur-md border-t sticky bottom-0 ${
+        isPremium 
+          ? 'bg-black/80 border-gray-800' 
+          : 'bg-white/80 border-border'
+      }`}>
         <div className="max-w-4xl mx-auto px-4 py-4">
           {selectedImage && (
             <div className="mb-3 relative inline-block">
@@ -448,89 +520,143 @@ const Index = () => {
             <div className="relative action-menu-container">
               <button
                 onClick={() => setShowActionMenu(!showActionMenu)}
-                className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/10 to-secondary/10 flex items-center justify-center hover:from-primary/20 hover:to-secondary/20 transition-all border border-primary/20"
+                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+                  isPremium 
+                    ? 'bg-gradient-to-br from-yellow-400/20 to-yellow-600/20 hover:from-yellow-400/30 hover:to-yellow-600/30 border border-yellow-500/30' 
+                    : 'bg-gradient-to-br from-primary/10 to-secondary/10 hover:from-primary/20 hover:to-secondary/20 border border-primary/20'
+                }`}
                 aria-label="Открыть меню действий"
               >
-                <Icon name="Plus" size={20} className="text-primary" />
+                <Icon name="Plus" size={20} className={isPremium ? 'text-yellow-500' : 'text-primary'} />
               </button>
               
               {showActionMenu && (
-                <div className="absolute bottom-full left-0 mb-2 w-64 bg-white rounded-2xl shadow-2xl border border-border overflow-hidden animate-fade-in">
+                <div className={`absolute bottom-full left-0 mb-2 w-64 rounded-2xl shadow-2xl overflow-hidden animate-fade-in ${
+                  isPremium 
+                    ? 'bg-gray-900 border border-gray-700' 
+                    : 'bg-white border-border'
+                }`}>
                   <button
                     onClick={() => openFileSelect('photo')}
-                    className="w-full px-4 py-3 flex items-center gap-3 hover:bg-primary/5 transition-colors text-left"
+                    className={`w-full px-4 py-3 flex items-center gap-3 transition-colors text-left ${
+                      isPremium ? 'hover:bg-yellow-500/10' : 'hover:bg-primary/5'
+                    }`}
                   >
                     <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
                       <span className="text-xl">📷</span>
                     </div>
                     <div>
-                      <p className="font-medium text-sm">Выбрать фото</p>
-                      <p className="text-xs text-muted-foreground">Описать содержимое</p>
+                      <p className={`font-medium text-sm ${
+                        isPremium ? 'text-gray-100' : 'text-foreground'
+                      }`}>Выбрать фото</p>
+                      <p className={`text-xs ${
+                        isPremium ? 'text-gray-500' : 'text-muted-foreground'
+                      }`}>Описать содержимое</p>
                     </div>
                   </button>
                   
                   <button
                     onClick={() => startCamera('photo')}
-                    className="w-full px-4 py-3 flex items-center gap-3 hover:bg-primary/5 transition-colors text-left border-t border-border"
+                    className={`w-full px-4 py-3 flex items-center gap-3 transition-colors text-left border-t ${
+                      isPremium 
+                        ? 'hover:bg-yellow-500/10 border-gray-800' 
+                        : 'hover:bg-primary/5 border-border'
+                    }`}
                   >
                     <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
                       <span className="text-xl">📸</span>
                     </div>
                     <div>
-                      <p className="font-medium text-sm">Сфотографировать</p>
-                      <p className="text-xs text-muted-foreground">Открыть камеру</p>
+                      <p className={`font-medium text-sm ${
+                        isPremium ? 'text-gray-100' : 'text-foreground'
+                      }`}>Сфотографировать</p>
+                      <p className={`text-xs ${
+                        isPremium ? 'text-gray-500' : 'text-muted-foreground'
+                      }`}>Открыть камеру</p>
                     </div>
                   </button>
                   
                   <button
                     onClick={() => openFileSelect('translate')}
-                    className="w-full px-4 py-3 flex items-center gap-3 hover:bg-primary/5 transition-colors text-left border-t border-border"
+                    className={`w-full px-4 py-3 flex items-center gap-3 transition-colors text-left border-t ${
+                      isPremium 
+                        ? 'hover:bg-yellow-500/10 border-gray-800' 
+                        : 'hover:bg-primary/5 border-border'
+                    }`}
                   >
                     <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
                       <span className="text-xl">🌐</span>
                     </div>
                     <div>
-                      <p className="font-medium text-sm">Перевести текст</p>
-                      <p className="text-xs text-muted-foreground">Из галереи</p>
+                      <p className={`font-medium text-sm ${
+                        isPremium ? 'text-gray-100' : 'text-foreground'
+                      }`}>Перевести текст</p>
+                      <p className={`text-xs ${
+                        isPremium ? 'text-gray-500' : 'text-muted-foreground'
+                      }`}>Из галереи</p>
                     </div>
                   </button>
                   
                   <button
                     onClick={() => startCamera('translate')}
-                    className="w-full px-4 py-3 flex items-center gap-3 hover:bg-primary/5 transition-colors text-left border-t border-border"
+                    className={`w-full px-4 py-3 flex items-center gap-3 transition-colors text-left border-t ${
+                      isPremium 
+                        ? 'hover:bg-yellow-500/10 border-gray-800' 
+                        : 'hover:bg-primary/5 border-border'
+                    }`}
                   >
                     <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
                       <span className="text-xl">📱</span>
                     </div>
                     <div>
-                      <p className="font-medium text-sm">Перевести с камеры</p>
-                      <p className="text-xs text-muted-foreground">Навести на текст</p>
+                      <p className={`font-medium text-sm ${
+                        isPremium ? 'text-gray-100' : 'text-foreground'
+                      }`}>Перевести с камеры</p>
+                      <p className={`text-xs ${
+                        isPremium ? 'text-gray-500' : 'text-muted-foreground'
+                      }`}>Навести на текст</p>
                     </div>
                   </button>
                   
                   <button
                     onClick={() => openFileSelect('solve')}
-                    className="w-full px-4 py-3 flex items-center gap-3 hover:bg-primary/5 transition-colors text-left border-t border-border"
+                    className={`w-full px-4 py-3 flex items-center gap-3 transition-colors text-left border-t ${
+                      isPremium 
+                        ? 'hover:bg-yellow-500/10 border-gray-800' 
+                        : 'hover:bg-primary/5 border-border'
+                    }`}
                   >
                     <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
                       <span className="text-xl">🧮</span>
                     </div>
                     <div>
-                      <p className="font-medium text-sm">Решить задачу</p>
-                      <p className="text-xs text-muted-foreground">Из галереи</p>
+                      <p className={`font-medium text-sm ${
+                        isPremium ? 'text-gray-100' : 'text-foreground'
+                      }`}>Решить задачу</p>
+                      <p className={`text-xs ${
+                        isPremium ? 'text-gray-500' : 'text-muted-foreground'
+                      }`}>Из галереи</p>
                     </div>
                   </button>
                   
                   <button
                     onClick={() => startCamera('solve')}
-                    className="w-full px-4 py-3 flex items-center gap-3 hover:bg-primary/5 transition-colors text-left border-t border-border"
+                    className={`w-full px-4 py-3 flex items-center gap-3 transition-colors text-left border-t ${
+                      isPremium 
+                        ? 'hover:bg-yellow-500/10 border-gray-800' 
+                        : 'hover:bg-primary/5 border-border'
+                    }`}
                   >
                     <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
                       <span className="text-xl">📐</span>
                     </div>
                     <div>
-                      <p className="font-medium text-sm">Решить с камеры</p>
-                      <p className="text-xs text-muted-foreground">Навести на задачу</p>
+                      <p className={`font-medium text-sm ${
+                        isPremium ? 'text-gray-100' : 'text-foreground'
+                      }`}>Решить с камеры</p>
+                      <p className={`text-xs ${
+                        isPremium ? 'text-gray-500' : 'text-muted-foreground'
+                      }`}>Навести на задачу</p>
                     </div>
                   </button>
                 </div>
@@ -542,12 +668,20 @@ const Index = () => {
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Напиши сообщение Delta AI..."
-                className="pr-12 h-12 rounded-2xl border-2 focus:border-primary/50 transition-colors"
+                className={`pr-12 h-12 rounded-2xl border-2 transition-colors ${
+                  isPremium 
+                    ? 'bg-gray-800 border-gray-700 text-gray-100 placeholder:text-gray-500 focus:border-yellow-500/50' 
+                    : 'focus:border-primary/50'
+                }`}
               />
               {inputValue && (
                 <button
                   onClick={() => setInputValue('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  className={`absolute right-3 top-1/2 -translate-y-1/2 transition-colors ${
+                    isPremium 
+                      ? 'text-gray-500 hover:text-gray-300' 
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
                 >
                   <Icon name="X" size={18} />
                 </button>
@@ -556,12 +690,18 @@ const Index = () => {
             <Button
               onClick={handleSend}
               disabled={!inputValue.trim() || isTyping}
-              className="h-12 px-6 rounded-2xl bg-gradient-to-r from-primary via-secondary to-accent hover:opacity-90 transition-opacity"
+              className={`h-12 px-6 rounded-2xl hover:opacity-90 transition-opacity ${
+                isPremium 
+                  ? 'bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 text-black' 
+                  : 'bg-gradient-to-r from-primary via-secondary to-accent'
+              }`}
             >
               <Icon name="Send" size={20} />
             </Button>
           </div>
-          <p className="text-xs text-center text-muted-foreground mt-2">
+          <p className={`text-xs text-center mt-2 ${
+            isPremium ? 'text-gray-600' : 'text-muted-foreground'
+          }`}>
             Delta AI может совершать ошибки. Проверяйте важную информацию.
           </p>
         </div>
